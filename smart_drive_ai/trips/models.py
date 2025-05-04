@@ -25,7 +25,9 @@ class Trip(models.Model):
     )
     start_time = models.DateTimeField('Дата и время начала')
     end_time = models.DateTimeField('Дата и время окончания')
-    sensor_data_file = models.FileField('Файл с данными с датчиков')
+    sensor_data_file = models.FileField(
+        'Файл с данными с датчиков', upload_to='sensor_data'
+    )
 
 
 class TripAnalysis(models.Model):
@@ -37,8 +39,9 @@ class TripAnalysis(models.Model):
     distance = models.FloatField('Пройденное расстояние (км)')
     hard_brakes = models.IntegerField('Частота резких торможений')
     hard_accels = models.IntegerField('Частота резких ускорений')
-    avg_yaw_rate = models.FloatField('Средняя угловая скорость')
     sharp_turns = models.IntegerField('Число резких маневров')
+    avg_gyro_mag = models.FloatField('Средняя угловая скорость')
+    trip_duration = models.FloatField('Длительность поездки')
 
 
 class DrivingStyle(models.Model):
@@ -56,9 +59,10 @@ class UserDrivingProfile(models.Model):
         User, on_delete=models.CASCADE, verbose_name='Пользователь'
     )
     total_trips = models.IntegerField('Общее число поездок')
-    total_distance = models.FloatField('Пройденное расстояние (км)')
     avg_speed = models.FloatField('Средняя скорость (км/ч)')
+    total_distance = models.FloatField('Пройденное расстояние (км)')
     avg_brakes = models.FloatField('Среднее число резких торможений')
     avg_accels = models.FloatField('Среднее число резких ускорений')
-    avg_yaw_rate = models.FloatField('Средняя угловая скорость')
+    avg_sharp_turns = models.FloatField('Среднее число резких маневров')
+    avg_gyro_mag = models.FloatField('Средняя угловая скорость')
     overall_category = models.CharField('Общая категория стиля', max_length=50)
