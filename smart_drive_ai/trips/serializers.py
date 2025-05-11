@@ -1,8 +1,9 @@
 import pandas as pd
+from django.db.models import Avg, Count, Sum
 from rest_framework import serializers
 
 from .extract_features_single_trip import extract_trip_features
-from .models import Trip, TripAnalysis, User
+from .models import DrivingStyle, Trip, TripAnalysis, User, UserDrivingProfile
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -23,7 +24,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
-class TripSerializer(serializers.ModelSerializer):
+class TripUploadSerializer(serializers.ModelSerializer):
     """Сериализатор для загрузки телеметрических данных поездки,
     дальнейшей обработки полученных данных
     и сохранения результатов обработки в таблицу TripAnalysis.
@@ -31,27 +32,93 @@ class TripSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trip
-        fields = ('start_time', 'end_time', 'sensor_data_file')
+        fields = ('start_date_time', 'end_date_time', 'sensor_data_file')
 
     def create(self, validated_data):
         trip = super().create(validated_data)
-
-        # region Обработка входного csv файла
+        # Обработка входного csv файла
         path = trip.sensor_data_file
         stats, user_stats = extract_trip_features(
             df=pd.read_csv(path), filename=path
         )
-        # endregion
-        # region Сохранение результатов обработки в TripAnalysis
-        TripAnalysis.objects.create(
-            trip=trip,
-            avg_speed=user_stats['avg_speed'],
-            distance=user_stats['distance'],
-            hard_brakes=user_stats['hard_brakes'],
-            hard_accels=user_stats['hard_accels'],
-            avg_gyro_mag=user_stats['avg_gyro_mag'],
-            sharp_turns=user_stats['sharp_turns'],
-            trip_duration=user_stats['trip_duration']
+        # Сохранение результатов обработки в TripAnalysis
+        TripAnalysis.objects.create(trip=trip, **user_stats)
+
+        aggregated_data = Trip.objects.filter(user=trip.user).select_related(
+            'tripanalysis'
+        ).aggregate(
+            total_trips=Count('id'),
+            avg_speed=Avg('tripanalysis__avg_speed'),
+            total_distance=Sum('tripanalysis__distance'),
+            avg_brakes=Avg('tripanalysis__hard_brakes'),
+            avg_accels=Avg('tripanalysis__hard_accels'),
+            avg_sharp_turns=Avg('tripanalysis__sharp_turns'),
+            avg_gyro_mag=Avg('tripanalysis__avg_gyro_mag'),
         )
-        # endregion
+
+        UserDrivingProfile.objects.update_or_create(
+            user=trip.user, defaults=aggregated_data
+        )
+
         return trip
+
+
+class DrivingStyleSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения оценки стиля вождения."""
+
+    class Meta:
+        model = DrivingStyle
+        fields = ('category', 'recommendations',)
+
+
+class TripAnalysisSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения анализа поездки."""
+
+    class Meta:
+        model = TripAnalysis
+        fields = (
+            'avg_speed', 'distance', 'hard_brakes', 'hard_accels',
+            'sharp_turns', 'avg_gyro_mag', 'trip_duration',
+        )
+
+
+class TripRetrieveSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения полной информации о поездке."""
+
+    trip_analysis = TripAnalysisSerializer(source='tripanalysis')
+    driving_style = DrivingStyleSerializer(source='tripanalysis.drivingstyle')
+
+    class Meta:
+        model = Trip
+        fields = (
+            'id', 'start_date_time', 'end_date_time', 'sensor_data_file',
+            'trip_analysis', 'driving_style',
+        )
+
+
+class TripListSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения списка поездок."""
+
+    distance = serializers.SerializerMethodField()
+    driving_style = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Trip
+        fields = (
+            'id', 'start_date_time', 'end_date_time', 'distance',
+            'driving_style',
+        )
+
+    def get_distance(self, obj):
+        return obj.tripanalysis.distance
+
+    def get_driving_style(self, obj):
+        return obj.tripanalysis.drivingstyle.category
+
+
+class UserDrivingProfileSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения агрегированных показателей."""
+
+    class Meta:
+        model = UserDrivingProfile
+        exclude = ('id', 'user',)

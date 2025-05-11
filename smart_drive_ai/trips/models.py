@@ -21,10 +21,11 @@ class User(AbstractBaseUser):
 class Trip(models.Model):
     """Поездка."""
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, verbose_name='Пользователь'
+        User, on_delete=models.CASCADE, verbose_name='Пользователь',
+        related_name='trips'
     )
-    start_time = models.DateTimeField('Дата и время начала')
-    end_time = models.DateTimeField('Дата и время окончания')
+    start_date_time = models.DateTimeField('Дата и время начала')
+    end_date_time = models.DateTimeField('Дата и время окончания')
     sensor_data_file = models.FileField(
         'Файл с данными с датчиков', upload_to='sensor_data'
     )
