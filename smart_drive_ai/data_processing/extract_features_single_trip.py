@@ -103,19 +103,4 @@ def extract_trip_features(
         'trip_duration_sec': trip_duration_sec
     }
 
-    aggr_score = (
-        stats['pct_event_jerk']
-        + 0.5 * stats['pct_event_jerk_relative']
-        + stats['pct_event_acc']
-        + stats['pct_event_gyro']
-        + stats['pct_event_speed']
-    )
-
-    if aggr_score < 0.1:
-        stats['driving_style'] = 'плавный'
-    elif aggr_score < 0.25:
-        stats['driving_style'] = 'умеренный'
-    else:
-        stats['driving_style'] = 'агрессивный'
-
     return stats, user_stats

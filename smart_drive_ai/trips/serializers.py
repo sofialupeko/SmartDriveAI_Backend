@@ -2,7 +2,7 @@ import pandas as pd
 from django.db.models import Avg, Count, Sum
 from rest_framework import serializers
 
-from .extract_features_single_trip import extract_trip_features
+from data_processing.extract_features_single_trip import extract_trip_features
 from .models import DrivingStyle, Trip, TripAnalysis, User, UserDrivingProfile
 
 
@@ -55,7 +55,8 @@ class TripUploadSerializer(serializers.ModelSerializer):
             avg_sharp_turns=Avg('tripanalysis__sharp_turns'),
             avg_gyro_mag=Avg('tripanalysis__avg_gyro_mag'),
         )
-
+        # Сохранение или обновление агрегированных данных,
+        # в профиле вождения пользователя
         UserDrivingProfile.objects.update_or_create(
             user=trip.user, defaults=aggregated_data
         )

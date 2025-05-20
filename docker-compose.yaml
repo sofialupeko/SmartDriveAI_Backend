@@ -1,0 +1,29 @@
+volumes:
+  pg_data:
+  backend_static:
+  media:
+services:
+  db:
+    image: postgres
+    env_file: .env-docker
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+  backend:
+    build: ./smart_drive_ai/
+    env_file: .env-docker
+    volumes:
+      - backend_static:/backend_static
+      - media:/app/media 
+    depends_on: 
+      - db
+
+  nginx:
+    build: ./nginx/
+    volumes: 
+      - backend_static:/backend_static/
+      - media:/app/media 
+    ports:
+      - 8000:80
+    depends_on:
+      - backend
+      - db
