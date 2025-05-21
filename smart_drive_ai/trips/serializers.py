@@ -2,8 +2,17 @@ import pandas as pd
 from django.db.models import Avg, Count, Sum
 from rest_framework import serializers
 
+from data_processing.classify_trip import classify_trip
+from data_processing.dsi_algorithm import get_overall_category
 from data_processing.extract_features_single_trip import extract_trip_features
 from .models import DrivingStyle, Trip, TripAnalysis, User, UserDrivingProfile
+
+
+CATEGORIES = {
+    'плавный': 'smooth',
+    'умеренный': 'moderate',
+    'агрессивный': 'aggressive'
+}
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -25,9 +34,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class TripUploadSerializer(serializers.ModelSerializer):
-    """Сериализатор для загрузки телеметрических данных поездки,
-    дальнейшей обработки полученных данных
-    и сохранения результатов обработки в таблицу TripAnalysis.
+    """Сериализатор для загрузки телеметрических данных поездки и
+    дальнейшей обработки полученных данных.
     """
 
     class Meta:
@@ -35,15 +43,28 @@ class TripUploadSerializer(serializers.ModelSerializer):
         fields = ('start_date_time', 'end_date_time', 'sensor_data_file')
 
     def create(self, validated_data):
+        # Вызов родительского метода: создание поездки
         trip = super().create(validated_data)
+
         # Обработка входного csv файла
         path = trip.sensor_data_file
         stats, user_stats = extract_trip_features(
             df=pd.read_csv(path), filename=path
         )
         # Сохранение результатов обработки в TripAnalysis
-        TripAnalysis.objects.create(trip=trip, **user_stats)
+        analysis = TripAnalysis.objects.create(trip=trip, **user_stats)
 
+        # Вызов нейронки, получение и сохранение оценки стиля вождения
+        category = classify_trip(stats)  # категория на русском
+        driving_style = DrivingStyle.objects.create(
+            analysis=analysis, category=CATEGORIES.get(category)  # сохранение категории на английском
+        )
+        # Добавление комментария
+        driving_style.add_recommendations()
+
+        # region АГРЕГАЦИЯ
+
+        # Создание агрегированных данных
         aggregated_data = Trip.objects.filter(user=trip.user).select_related(
             'tripanalysis'
         ).aggregate(
@@ -55,12 +76,25 @@ class TripUploadSerializer(serializers.ModelSerializer):
             avg_sharp_turns=Avg('tripanalysis__sharp_turns'),
             avg_gyro_mag=Avg('tripanalysis__avg_gyro_mag'),
         )
+
+        # Сбор данных для определения агрегированной категории
+        data = Trip.objects.filter(user=trip.user).values_list(
+            'tripanalysis__drivingstyle__timestamp',
+            'tripanalysis__drivingstyle__category'
+        )
+        # Определение агрегированной категории
+        overall_category = get_overall_category(list(data))
+
+        # Добавление агрегированной категории
+        aggregated_data['overall_category'] = overall_category
+
         # Сохранение или обновление агрегированных данных,
         # в профиле вождения пользователя
         UserDrivingProfile.objects.update_or_create(
             user=trip.user, defaults=aggregated_data
         )
 
+        # endregion
         return trip
 
 

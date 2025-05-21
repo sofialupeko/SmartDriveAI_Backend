@@ -4,6 +4,31 @@ from django.utils import timezone
 from phonenumber_field.modelfields import PhoneNumberField
 
 
+CATEGORIES = (
+    ('smooth', 'плавный'),
+    ('moderate', 'умеренный'),
+    ('aggressive', 'агрессивный'),
+)
+
+RECOMMENDATIONS = {
+    'smooth': (
+        '• Поддерживайте плавность хода — без резких разгонов и торможений.\n'
+        '• Держите ровную скорость, при возможности включайт)е круиз‑контроль.\n'
+        '• Проверяйте давление в шинах хотя бы раз в месяц.\n'
+    ),
+    'moderate': (
+        '• Смягчите разгон: нажимайте газ не более чем на 70 %.\n'
+        '• Тормозите заранее, оставляя до впереди идущего авто 2 секунды (время между его проездом ориентира и вашим).\n'
+        '• Включите Eco‑режим и меньше перестраивайтесь.\n'
+    ),
+    'aggressive': (
+        '• Снизьте среднюю скорость до разрешённого лимита.\n'
+        '• Держите дистанцию до впереди идущего автомобиля не менее 4 секунд (время между его проездом ориентира и вашим).\n'
+        '• Избегайте рывков и резких манёвров • Запишитесь на курс безопасного вождения.\n'
+    )
+}
+
+
 class User(AbstractBaseUser):
     """Пользователь."""
     name = models.CharField('Имя', max_length=100, blank=True, null=True)
@@ -50,8 +75,16 @@ class DrivingStyle(models.Model):
     analysis = models.OneToOneField(
         TripAnalysis, on_delete=models.CASCADE, verbose_name='Анализ поездки'
     )
-    category = models.CharField('Категория стиля', max_length=50)
+    category = models.CharField('Категория стиля', choices=CATEGORIES)
     recommendations = models.TextField('Рекомендации')
+    timestamp = models.DateTimeField(
+        'Дата и время создания оценки', default=timezone.now
+    )
+
+    def add_recommendations(self):
+        """Сохранение рекомендации исходя из категории."""
+        self.recommendations = RECOMMENDATIONS.get(self.category)
+        self.save()
 
 
 class UserDrivingProfile(models.Model):
