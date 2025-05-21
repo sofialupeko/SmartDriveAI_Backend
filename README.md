@@ -1,11 +1,19 @@
 # SmartDriveAI_Backend
 
 ## Локальный запуск в Docker
-Находясь в корне проекта, выполнить команду для запуска сети контейнеров
+Перейти в директорию с проектом:
 ```
-docker compose up
+cd SmartDriveAI_Backend
 ```
-В новом терминале выполнить команду по сбору статики Django
+Запустить сеть контейнеров в фоновом режиме:
+```
+docker compose up -d
+```
+Если код меняется контейнеры нужно пересобрать и запустить:
+```
+docker compose up --build -d
+```
+Сбору статики Django:
 ```
 docker compose exec backend python manage.py collectstatic
 ```
@@ -16,4 +24,4 @@ docker compose exec backend cp -r /app/collected_static/. /backend_static/static
 Применение миграций:
 docker compose exec backend python manage.py migrate
 
-Документация API доступна по адресу `http://127.0.0.1:8080/docs/`.
+Документация API доступна по адресу `http://127.0.0.1:8000/docs/`.
