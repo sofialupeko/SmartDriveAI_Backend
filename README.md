@@ -13,7 +13,9 @@ docker compose up -d
 ```
 docker compose up --build -d
 ```
-Сбору статики Django:
+
+# При первом запуске
+Сбор статики Django:
 ```
 docker compose exec backend python manage.py collectstatic
 ```
@@ -22,6 +24,8 @@ docker compose exec backend python manage.py collectstatic
 docker compose exec backend cp -r /app/collected_static/. /backend_static/static/
 ```
 Применение миграций:
+```
 docker compose exec backend python manage.py migrate
+```
 
 Документация API доступна по адресу `http://127.0.0.1:8000/docs/`.
