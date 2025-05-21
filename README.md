@@ -14,7 +14,7 @@ docker compose up -d
 docker compose up --build -d
 ```
 
-# При первом запуске
+### При первом запуске
 Сбор статики Django:
 ```
 docker compose exec backend python manage.py collectstatic
